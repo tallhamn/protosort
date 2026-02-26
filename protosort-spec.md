@@ -220,11 +220,13 @@ Options:
   -w, --write         Write changes in-place (default: print to stdout)
   -c, --check         Exit non-zero if file would change (for CI)
   -d, --diff          Print unified diff of changes
-  --skip-verify       Skip protoc descriptor verification (not recommended)
+  --verify            Run protoc descriptor verification after sorting
   --protoc <PATH>     Path to protoc binary (default: search PATH)
   --proto-path <DIR>  Additional proto include paths (repeatable)
   --shared-order <ORDER>
                       Ordering for core types: "alpha" (default) or "dependency"
+  --sort-rpcs <MODE>  Sort RPCs within service blocks: "alpha" (alphabetical) or
+                      "grouped" (group by resource name, then alphabetical)
   --preserve-dividers Keep section divider comments attached to next declaration
   --strip-commented-code
                       Remove comment blocks that consist entirely of commented-out
@@ -305,6 +307,10 @@ For project-wide consistency, `protosort` can optionally read a `.protosort.toml
 # How to order core types
 shared_order = "alpha"  # "alpha" | "dependency"
 
+# Sort RPCs within service blocks
+# "" = disabled (default), "alpha" = alphabetical, "grouped" = by resource
+sort_rpcs = ""
+
 # Whether to preserve visual divider comments
 preserve_dividers = false
 
@@ -318,8 +324,8 @@ compiler = "protoc"
 # Additional include paths
 proto_paths = ["proto/", "third_party/"]
 
-# Skip verification (not recommended)
-skip_verify = false
+# Run protoc descriptor verification
+verify = false
 
 [warnings]
 # Warn on unreferenced types

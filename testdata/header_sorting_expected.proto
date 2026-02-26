@@ -3,15 +3,11 @@ syntax = "proto3";
 package test.v1;
 
 option cc_enable_arenas = "true";
-
 option go_package = "test/v1";
-
 option java_package = "com.test.v1";
 
 import "a/alpha.proto";
-
 import "m/middle.proto";
-
 import "z/zebra.proto";
 
 message Foo {

@@ -15,12 +15,12 @@ import (
 // Verify checks that the sorted output is semantically identical to the original.
 func Verify(original, sorted string, opts Options) error {
 	// Content integrity check (always runs)
-	if err := verifyContentIntegrity(original, sorted); err != nil {
+	if err := verifyContentIntegrity(original, sorted, opts); err != nil {
 		return fmt.Errorf("content integrity check failed: %w", err)
 	}
 
 	// Descriptor set comparison (requires protoc)
-	if !opts.SkipVerify {
+	if opts.Verify {
 		if err := verifyDescriptorSets(original, sorted, opts); err != nil {
 			return fmt.Errorf("descriptor verification failed: %w", err)
 		}
@@ -31,7 +31,7 @@ func Verify(original, sorted string, opts Options) error {
 
 // verifyContentIntegrity checks that the set of declarations (by name and body content)
 // is identical before and after reordering.
-func verifyContentIntegrity(original, sorted string) error {
+func verifyContentIntegrity(original, sorted string, opts Options) error {
 	origBlocks, err := ScanFile(original)
 	if err != nil {
 		return fmt.Errorf("scanning original: %w", err)
@@ -43,6 +43,13 @@ func verifyContentIntegrity(original, sorted string) error {
 
 	origDecls := extractDeclarations(origBlocks)
 	sortedDecls := extractDeclarations(sortedBlocks)
+
+	// When SortRPCs is set, normalize service bodies so reordered RPCs
+	// don't cause a false integrity mismatch.
+	if opts.SortRPCs != "" {
+		normalizeServiceDecls(origDecls)
+		normalizeServiceDecls(sortedDecls)
+	}
 
 	// Check counts match
 	if len(origDecls) != len(sortedDecls) {
@@ -68,6 +75,18 @@ func verifyContentIntegrity(original, sorted string) error {
 	}
 
 	return nil
+}
+
+// normalizeServiceDecls sorts the lines within service declaration bodies
+// so that RPC reordering doesn't cause a content integrity mismatch.
+func normalizeServiceDecls(decls map[string]string) {
+	for key, body := range decls {
+		if strings.HasPrefix(key, "service:") {
+			lines := strings.Split(body, "\n")
+			sort.Strings(lines)
+			decls[key] = strings.Join(lines, "\n")
+		}
+	}
 }
 
 // extractDeclarations returns a map from declaration key to body text.
@@ -97,7 +116,7 @@ func verifyDescriptorSets(original, sorted string, opts Options) error {
 
 	// Check if protoc is available
 	if _, err := exec.LookPath(protocPath); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: protoc not found, skipping descriptor verification (use --skip-verify to silence)\n")
+		fmt.Fprintf(os.Stderr, "warning: protoc not found, skipping descriptor verification\n")
 		return nil
 	}
 

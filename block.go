@@ -77,10 +77,11 @@ type Options struct {
 	Write            bool
 	Check            bool
 	Diff             bool
-	SkipVerify       bool
+	Verify           bool
 	ProtocPath       string
 	ProtoPaths       []string
 	SharedOrder      string // "alpha" or "dependency"
+	SortRPCs         string // "" (disabled), "alpha", or "grouped"
 	PreserveDividers bool
 	StripCommented   bool
 	DryRun           bool

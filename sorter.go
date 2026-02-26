@@ -40,6 +40,15 @@ func Sort(content string, opts Options) (string, []string, error) {
 		}
 	}
 
+	// Sort RPCs within services if requested (before extracting RPC info)
+	if opts.SortRPCs != "" {
+		for _, b := range blocks {
+			if b.Kind == BlockService {
+				b.DeclText = SortRPCsInService(b.DeclText, opts.SortRPCs)
+			}
+		}
+	}
+
 	// Populate RPC info on service blocks
 	for _, b := range blocks {
 		if b.Kind == BlockService {

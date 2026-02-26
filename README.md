@@ -150,10 +150,11 @@ Options:
   -r, --recursive           Recursively process all .proto files in directories
   --dry-run                 Report what would change without writing
   --shared-order string     Ordering for core types: alpha or dependency (default "alpha")
+  --sort-rpcs string        Sort RPCs within services: alpha or grouped
   --preserve-dividers       Keep section divider comments
   --strip-commented-code    Remove commented-out protobuf declarations
   --annotate                Add classification annotations to comments
-  --skip-verify             Skip protoc descriptor verification
+  --verify                  Run protoc descriptor verification after sorting
   --protoc string           Path to protoc binary
   --proto-path value        Additional proto include paths (repeatable)
   --config string           Path to .protosort.toml config file
@@ -168,11 +169,12 @@ protosort looks for a `.protosort.toml` file in the current directory or any par
 ```toml
 [ordering]
 shared_order = "alpha"         # "alpha" or "dependency"
+sort_rpcs = ""                 # "" (disabled), "alpha", or "grouped"
 preserve_dividers = false
 strip_commented_code = false
 
 [verify]
-skip_verify = false
+verify = false
 compiler = ""                  # path to protoc binary
 proto_paths = []
 ```
@@ -189,7 +191,7 @@ proto_paths = []
 
 ## Verification
 
-By default, protosort runs `protoc` to compile both the original and sorted files, normalizes the resulting descriptor sets (stripping source location info and sorting internal lists), then compares them. This ensures reordering never changes the compiled schema. Use `--skip-verify` to disable this (e.g., if `protoc` is unavailable).
+protosort always checks that the set of declarations is identical before and after sorting (content integrity). Optionally, pass `--verify` to also compile both versions with `protoc` and compare the resulting descriptor sets, ensuring the reordering never changes the compiled schema. This requires `protoc` to be installed and all imports to be resolvable via `--proto-path`.
 
 ## Documentation
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-var defaultOpts = Options{Quiet: true, SkipVerify: true}
+var defaultOpts = Options{Quiet: true}
 
 // ============================================================
 // Golden-file integration tests
@@ -119,7 +119,7 @@ func TestContentIntegrity_AllFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Sort failed: %v", err)
 			}
-			if err := verifyContentIntegrity(original, sorted); err != nil {
+			if err := verifyContentIntegrity(original, sorted, defaultOpts); err != nil {
 				t.Errorf("integrity check failed: %v", err)
 			}
 		})
@@ -729,7 +729,7 @@ message Used { string v = 1; }
 message C1 { Used u = 1; }
 message C2 { Used u = 1; }
 `
-	output, warnings, err := Sort(input, Options{SkipVerify: true})
+	output, warnings, err := Sort(input, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1140,7 +1140,7 @@ func TestSort_StripCommentedCode(t *testing.T) {
 // This is a real comment about Foo.
 message Foo { string v = 1; }
 `
-	output, _, err := Sort(input, Options{Quiet: true, SkipVerify: true, StripCommented: true})
+	output, _, err := Sort(input, Options{Quiet: true, StripCommented: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1159,7 +1159,7 @@ func TestSort_StripCommentedCode_PreservesProseComments(t *testing.T) {
 // It has multiple lines of explanation.
 message Foo { string v = 1; }
 `
-	output, _, err := Sort(input, Options{Quiet: true, SkipVerify: true, StripCommented: true})
+	output, _, err := Sort(input, Options{Quiet: true, StripCommented: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1181,7 +1181,7 @@ message Bar { string v = 1; }
 message Bar { string v = 1; }
 message Foo { string v = 1; }
 `
-	if err := verifyContentIntegrity(original, sorted); err != nil {
+	if err := verifyContentIntegrity(original, sorted, defaultOpts); err != nil {
 		t.Errorf("should pass: %v", err)
 	}
 }
@@ -1194,7 +1194,7 @@ message Bar { string v = 1; }
 	sorted := `syntax = "proto3";
 message Foo { string v = 1; }
 `
-	if err := verifyContentIntegrity(original, sorted); err == nil {
+	if err := verifyContentIntegrity(original, sorted, defaultOpts); err == nil {
 		t.Error("should fail for missing declaration")
 	}
 }
@@ -1206,7 +1206,7 @@ message Foo { string name = 1; }
 	sorted := `syntax = "proto3";
 message Foo { int32 name = 1; }
 `
-	if err := verifyContentIntegrity(original, sorted); err == nil {
+	if err := verifyContentIntegrity(original, sorted, defaultOpts); err == nil {
 		t.Error("should fail for altered body")
 	}
 }
@@ -1219,7 +1219,7 @@ message Foo { string v = 1; }
 message Foo { string v = 1; }
 message Bar { string v = 1; }
 `
-	if err := verifyContentIntegrity(original, sorted); err == nil {
+	if err := verifyContentIntegrity(original, sorted, defaultOpts); err == nil {
 		t.Error("should fail for extra declaration")
 	}
 }
@@ -1249,7 +1249,7 @@ func TestProperty_RandomProtos(t *testing.T) {
 		}
 
 		// Content integrity
-		if err := verifyContentIntegrity(proto, output); err != nil {
+		if err := verifyContentIntegrity(proto, output, defaultOpts); err != nil {
 			t.Errorf("iteration %d: integrity check failed: %v", i, err)
 		}
 	}
@@ -1393,7 +1393,7 @@ message Beta { string v = 1; }
 
 message Alpha { string v = 1; }
 `
-	opts := Options{Quiet: true, SkipVerify: true, PreserveDividers: true}
+	opts := Options{Quiet: true, PreserveDividers: true}
 	output, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -1573,7 +1573,7 @@ func TestSort_UnreferencedTypeWarning(t *testing.T) {
 message Orphan1 { string v = 1; }
 message Orphan2 { string v = 1; }
 `
-	_, warnings, err := Sort(input, Options{SkipVerify: true})
+	_, warnings, err := Sort(input, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1608,7 +1608,7 @@ message A { string v = 1; }
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	code := processFile(inputFile, Options{Check: true, SkipVerify: true, Quiet: true})
+	code := processFile(inputFile, Options{Check: true, Quiet: true})
 	if code != 1 {
 		t.Errorf("check mode should return 1 for changed file, got %d", code)
 	}
@@ -1628,7 +1628,7 @@ message B { string v = 1; }
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	code := processFile(inputFile, Options{Check: true, SkipVerify: true, Quiet: true})
+	code := processFile(inputFile, Options{Check: true, Quiet: true})
 	if code != 0 {
 		t.Errorf("check mode should return 0 for already-sorted file, got %d", code)
 	}
@@ -1647,7 +1647,7 @@ message A { string v = 1; }
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	code := processFile(inputFile, Options{Write: true, SkipVerify: true, Quiet: true})
+	code := processFile(inputFile, Options{Write: true, Quiet: true})
 	if code != 0 {
 		t.Errorf("write mode should return 0, got %d", code)
 	}
@@ -1696,7 +1696,7 @@ message A { string v = 1; }
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	code := processFile(inputFile, Options{DryRun: true, SkipVerify: true, Quiet: true})
+	code := processFile(inputFile, Options{DryRun: true, Quiet: true})
 	if code != 0 {
 		t.Errorf("dry-run should return 0, got %d", code)
 	}
@@ -1716,7 +1716,7 @@ func TestCLI_QuietSuppressesWarnings(t *testing.T) {
 
 message Orphan { string v = 1; }
 `
-	_, warnings, err := Sort(input, Options{SkipVerify: true, Quiet: true})
+	_, warnings, err := Sort(input, Options{Quiet: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1735,13 +1735,13 @@ func TestCLI_ExitCodeMatrix(t *testing.T) {
 		{
 			name:     "proto2 returns 3",
 			input:    `syntax = "proto2"; message Foo { required string v = 1; }`,
-			opts:     Options{SkipVerify: true},
+			opts:     Options{},
 			wantCode: 3,
 		},
 		{
 			name:     "success returns 0",
 			input:    "syntax = \"proto3\";\n\nmessage Foo { string v = 1; }\n",
-			opts:     Options{SkipVerify: true, Quiet: true},
+			opts:     Options{Quiet: true},
 			wantCode: 0,
 		},
 	}
@@ -1775,7 +1775,7 @@ message Helper { string v = 1; }
 message Consumer { Helper h = 1; U1 u = 1; U2 u2 = 2; }
 message Orphan { string v = 1; }
 `
-	opts := Options{Quiet: true, SkipVerify: true, Annotate: true}
+	opts := Options{Quiet: true, Annotate: true}
 	output, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -1809,7 +1809,7 @@ message C { string v = 1; }
 message X { A a = 1; C c = 1; }
 message Y { B b = 1; A a = 1; }
 `
-	opts := Options{Quiet: true, SkipVerify: true, SharedOrder: "dependency"}
+	opts := Options{Quiet: true, SharedOrder: "dependency"}
 	output, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -1856,7 +1856,7 @@ shared_order = "dependency"
 preserve_dividers = true
 
 [verify]
-skip_verify = true
+verify = true
 proto_paths = ["proto/", "third_party/"]
 `), 0644)
 
@@ -1874,8 +1874,8 @@ proto_paths = ["proto/", "third_party/"]
 	if !opts.PreserveDividers {
 		t.Error("PreserveDividers should be true from config")
 	}
-	if !opts.SkipVerify {
-		t.Error("SkipVerify should be true from config")
+	if !opts.Verify {
+		t.Error("Verify should be true from config")
 	}
 	if len(opts.ProtoPaths) != 2 {
 		t.Errorf("ProtoPaths: want 2, got %d", len(opts.ProtoPaths))
@@ -1961,7 +1961,7 @@ message U1 { Shared s = 1; }
 message U2 { Shared s = 1; }
 message Orphan { string v = 1; }
 `
-	opts := Options{Quiet: true, SkipVerify: true, Annotate: true}
+	opts := Options{Quiet: true, Annotate: true}
 	pass1, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatalf("first Sort failed: %v", err)
@@ -1981,7 +1981,7 @@ func TestAnnotate_PreservesExistingComments(t *testing.T) {
 // Important documentation about Foo.
 message Foo { string v = 1; }
 `
-	opts := Options{Quiet: true, SkipVerify: true, Annotate: true}
+	opts := Options{Quiet: true, Annotate: true}
 	output, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -2027,7 +2027,7 @@ message A { string v = 1; }
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	code := processFile(inputFile, Options{Write: true, SkipVerify: true, Quiet: true})
+	code := processFile(inputFile, Options{Write: true, Quiet: true})
 	if code != 0 {
 		t.Fatalf("write failed with code %d", code)
 	}
@@ -2041,6 +2041,288 @@ message A { string v = 1; }
 // ============================================================
 // Helpers
 // ============================================================
+
+// ============================================================
+// Import/option spacing tests
+// ============================================================
+
+func TestSort_ImportsGroupedWithoutBlankLines(t *testing.T) {
+	input := `syntax = "proto3";
+
+import "z/file.proto";
+import "a/file.proto";
+import "m/file.proto";
+`
+	output, _, err := Sort(input, defaultOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Imports should be grouped together without blank lines between them
+	want := "import \"a/file.proto\";\nimport \"m/file.proto\";\nimport \"z/file.proto\";\n"
+	if !strings.Contains(output, want) {
+		t.Errorf("imports should be grouped without blank lines, got:\n%s", output)
+	}
+}
+
+func TestSort_OptionsGroupedWithoutBlankLines(t *testing.T) {
+	input := `syntax = "proto3";
+
+option java_package = "com.test";
+option go_package = "test/v1";
+option cc_enable_arenas = "true";
+`
+	output, _, err := Sort(input, defaultOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Options should be grouped together without blank lines between them
+	want := "option cc_enable_arenas = \"true\";\noption go_package = \"test/v1\";\noption java_package = \"com.test\";\n"
+	if !strings.Contains(output, want) {
+		t.Errorf("options should be grouped without blank lines, got:\n%s", output)
+	}
+}
+
+// ============================================================
+// RPC sorting tests
+// ============================================================
+
+func TestSort_SortRPCsAlpha(t *testing.T) {
+	input := `syntax = "proto3";
+
+service UserService {
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+message DeleteUserRequest { string id = 1; }
+message DeleteUserResponse {}
+message CreateUserRequest { string name = 1; }
+message CreateUserResponse { string id = 1; }
+message GetUserRequest { string id = 1; }
+message GetUserResponse { string name = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "alpha"}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// RPCs should be sorted alphabetically: Create, Delete, Get
+	// Request/response pairs should follow new RPC order
+	assertOrder(t, output,
+		"message CreateUserRequest", "message CreateUserResponse",
+		"message DeleteUserRequest", "message DeleteUserResponse",
+		"message GetUserRequest", "message GetUserResponse")
+}
+
+func TestSort_SortRPCsGrouped(t *testing.T) {
+	input := `syntax = "proto3";
+
+service UserService {
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc ListTrips(ListTripsRequest) returns (ListTripsResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetTrip(GetTripRequest) returns (GetTripResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+}
+
+message DeleteUserRequest { string id = 1; }
+message DeleteUserResponse {}
+message ListTripsRequest { string user_id = 1; }
+message ListTripsResponse { string v = 1; }
+message CreateUserRequest { string name = 1; }
+message CreateUserResponse { string id = 1; }
+message GetTripRequest { string id = 1; }
+message GetTripResponse { string v = 1; }
+message GetUserRequest { string id = 1; }
+message GetUserResponse { string name = 1; }
+message CreateTripRequest { string name = 1; }
+message CreateTripResponse { string id = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "grouped"}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Grouped: Trip methods together, User methods together
+	// Within groups: alphabetical by full name
+	// Trip group: CreateTrip, GetTrip, ListTrips
+	// User group: CreateUser, DeleteUser, GetUser
+	assertOrder(t, output,
+		"message CreateTripRequest", "message CreateTripResponse",
+		"message GetTripRequest", "message GetTripResponse",
+		"message ListTripsRequest", "message ListTripsResponse",
+		"message CreateUserRequest", "message CreateUserResponse",
+		"message DeleteUserRequest", "message DeleteUserResponse",
+		"message GetUserRequest", "message GetUserResponse")
+}
+
+func TestSort_SortRPCsDisabledByDefault(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc Zulu(ZReq) returns (ZRes);
+  rpc Alpha(AReq) returns (ARes);
+}
+
+message ZReq { string v = 1; }
+message ZRes { string v = 1; }
+message AReq { string v = 1; }
+message ARes { string v = 1; }
+`
+	output, _, err := Sort(input, defaultOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Without --sort-rpcs, original RPC order preserved: Zulu before Alpha
+	assertOrder(t, output, "message ZReq", "message ZRes", "message AReq", "message ARes")
+}
+
+func TestSort_SortRPCsIdempotent(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc Delete(DReq) returns (DRes);
+  rpc Create(CReq) returns (CRes);
+  rpc Get(GReq) returns (GRes);
+}
+
+message DReq { string v = 1; }
+message DRes { string v = 1; }
+message CReq { string v = 1; }
+message CRes { string v = 1; }
+message GReq { string v = 1; }
+message GRes { string v = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "alpha"}
+	pass1, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatalf("first Sort: %v", err)
+	}
+	pass2, _, err := Sort(pass1, opts)
+	if err != nil {
+		t.Fatalf("second Sort: %v", err)
+	}
+	if pass1 != pass2 {
+		t.Errorf("--sort-rpcs alpha not idempotent.\nPass 1:\n%s\nPass 2:\n%s", pass1, pass2)
+	}
+}
+
+func TestRPCGroupKey(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"GetUser", "User"},
+		{"CreateUser", "User"},
+		{"DeleteUser", "User"},
+		{"ListUsers", "Users"},
+		{"UpdateUser", "User"},
+		{"BatchCreateUsers", "Users"},
+		{"BatchGetUsers", "Users"},
+		{"WatchTrip", "Trip"},
+		{"StreamEvents", "Events"},
+		{"SearchProducts", "Products"},
+		{"SetConfig", "Config"},
+		{"AddItem", "Item"},
+		{"RemoveItem", "Item"},
+		{"StartJob", "Job"},
+		{"StopJob", "Job"},
+		{"RunTask", "Task"},
+		{"CheckHealth", "Health"},
+		{"CancelOperation", "Operation"},
+		// No prefix match — return full name
+		{"Healthcheck", "Healthcheck"},
+		{"Getaway", "Getaway"}, // "Get" + lowercase 'a' → no strip
+		// Name equals prefix exactly → return full name
+		{"Get", "Get"},
+		{"Create", "Create"},
+	}
+	for _, tt := range tests {
+		got := rpcGroupKey(tt.name)
+		if got != tt.want {
+			t.Errorf("rpcGroupKey(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestSort_SortRPCsWithComments(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  // Deletes a user.
+  rpc DeleteUser(DReq) returns (DRes);
+  // Creates a user.
+  rpc CreateUser(CReq) returns (CRes);
+}
+
+message DReq { string v = 1; }
+message DRes { string v = 1; }
+message CReq { string v = 1; }
+message CRes { string v = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "alpha"}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Comments should travel with their RPC
+	assertOrder(t, output, "Creates a user", "rpc CreateUser", "Deletes a user", "rpc DeleteUser")
+}
+
+func TestSort_SortRPCsWithOptionBody(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc DeleteUser(DReq) returns (DRes) {
+    option (google.api.http) = {
+      delete: "/v1/users/{id}"
+    };
+  }
+  rpc CreateUser(CReq) returns (CRes);
+}
+
+message DReq { string v = 1; }
+message DRes { string v = 1; }
+message CReq { string v = 1; }
+message CRes { string v = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "alpha"}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// CreateUser should come before DeleteUser even though Delete has option body
+	assertOrder(t, output, "rpc CreateUser", "rpc DeleteUser")
+	// The option body should be preserved
+	if !strings.Contains(output, "delete: \"/v1/users/{id}\"") {
+		t.Error("RPC option body should be preserved")
+	}
+}
+
+func TestSort_SortRPCsContentIntegrity(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc Zulu(ZReq) returns (ZRes);
+  rpc Alpha(AReq) returns (ARes);
+}
+
+message ZReq { string v = 1; }
+message ZRes { string v = 1; }
+message AReq { string v = 1; }
+message ARes { string v = 1; }
+`
+	opts := Options{Quiet: true, SortRPCs: "alpha"}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyContentIntegrity(input, output, opts); err != nil {
+		t.Errorf("content integrity failed with --sort-rpcs: %v", err)
+	}
+}
 
 // assertOrder verifies that the given substrings appear in order within text.
 func assertOrder(t *testing.T, text string, substrs ...string) {

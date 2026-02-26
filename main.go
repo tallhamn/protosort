@@ -22,10 +22,11 @@ func main() {
 	flag.BoolVar(&opts.Check, "check", false, "Exit non-zero if file would change (for CI)")
 	flag.BoolVar(&opts.Diff, "d", false, "Print unified diff of changes")
 	flag.BoolVar(&opts.Diff, "diff", false, "Print unified diff of changes")
-	flag.BoolVar(&opts.SkipVerify, "skip-verify", false, "Skip protoc descriptor verification")
+	flag.BoolVar(&opts.Verify, "verify", false, "Run protoc descriptor verification after sorting")
 	flag.StringVar(&opts.ProtocPath, "protoc", "", "Path to protoc binary")
 	flag.Var(&protoPaths, "proto-path", "Additional proto include paths (repeatable)")
 	flag.StringVar(&opts.SharedOrder, "shared-order", "alpha", "Ordering for core types: alpha or dependency")
+	flag.StringVar(&opts.SortRPCs, "sort-rpcs", "", "Sort RPCs within services: alpha or grouped")
 	flag.BoolVar(&opts.PreserveDividers, "preserve-dividers", false, "Keep section divider comments")
 	flag.BoolVar(&opts.StripCommented, "strip-commented-code", false, "Remove commented-out protobuf declarations")
 	flag.BoolVar(&opts.DryRun, "dry-run", false, "Report what would change without writing")
@@ -68,6 +69,11 @@ func main() {
 
 	if opts.SharedOrder != "alpha" && opts.SharedOrder != "dependency" {
 		fmt.Fprintf(os.Stderr, "error: --shared-order must be \"alpha\" or \"dependency\", got %q\n", opts.SharedOrder)
+		os.Exit(4)
+	}
+
+	if opts.SortRPCs != "" && opts.SortRPCs != "alpha" && opts.SortRPCs != "grouped" {
+		fmt.Fprintf(os.Stderr, "error: --sort-rpcs must be \"alpha\" or \"grouped\", got %q\n", opts.SortRPCs)
 		os.Exit(4)
 	}
 
@@ -148,8 +154,8 @@ func processFile(file string, opts Options) int {
 		return 0
 	}
 
-	// Verify (unless skipped)
-	if !opts.SkipVerify && !opts.DryRun {
+	// Verify (if requested)
+	if opts.Verify && !opts.DryRun {
 		if err := Verify(original, sorted, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s: verification failed: %v\n", file, err)
 			return 2

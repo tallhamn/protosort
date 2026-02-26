@@ -16,6 +16,7 @@ type Config struct {
 // ConfigOrdering holds ordering-related config.
 type ConfigOrdering struct {
 	SharedOrder        string `toml:"shared_order"`
+	SortRPCs           string `toml:"sort_rpcs"`
 	PreserveDividers   *bool  `toml:"preserve_dividers"`
 	StripCommentedCode *bool  `toml:"strip_commented_code"`
 }
@@ -24,7 +25,7 @@ type ConfigOrdering struct {
 type ConfigVerify struct {
 	Compiler   string   `toml:"compiler"`
 	ProtoPaths []string `toml:"proto_paths"`
-	SkipVerify *bool    `toml:"skip_verify"`
+	Verify *bool `toml:"verify"`
 }
 
 // findConfigFile walks up from the current directory to find .protosort.toml,
@@ -74,6 +75,9 @@ func MergeConfig(opts *Options, cfg *Config, setFlags map[string]bool) {
 	if cfg.Ordering.SharedOrder != "" && !setFlags["shared-order"] {
 		opts.SharedOrder = cfg.Ordering.SharedOrder
 	}
+	if cfg.Ordering.SortRPCs != "" && !setFlags["sort-rpcs"] {
+		opts.SortRPCs = cfg.Ordering.SortRPCs
+	}
 	if cfg.Ordering.PreserveDividers != nil && !setFlags["preserve-dividers"] {
 		opts.PreserveDividers = *cfg.Ordering.PreserveDividers
 	}
@@ -87,7 +91,7 @@ func MergeConfig(opts *Options, cfg *Config, setFlags map[string]bool) {
 	if len(cfg.Verify.ProtoPaths) > 0 && !setFlags["proto-path"] {
 		opts.ProtoPaths = cfg.Verify.ProtoPaths
 	}
-	if cfg.Verify.SkipVerify != nil && !setFlags["skip-verify"] {
-		opts.SkipVerify = *cfg.Verify.SkipVerify
+	if cfg.Verify.Verify != nil && !setFlags["verify"] {
+		opts.Verify = *cfg.Verify.Verify
 	}
 }

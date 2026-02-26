@@ -14,6 +14,8 @@ Put these at the top, always in this order:
 
 **If the file declares a service**, start with it. It acts as a table of contents — a reader should see what the file *does* before seeing the types it uses. Request and response messages come next, paired up and in the same order as their RPCs. If `GetTrip` is the first RPC, then `GetTripRequest` and `GetTripResponse` come first.
 
+Optionally, RPCs within a service can be sorted with `--sort-rpcs alpha` (alphabetical) or `--sort-rpcs grouped` (group by resource name, then alphabetical within each group — e.g., all `*Trip` RPCs together, then all `*User` RPCs).
+
 **After that (or first, if there's no service), arrange the remaining types:**
 
 - If a type is used by more than one other type in the file, it's a **core type**. Core types are sorted alphabetically.

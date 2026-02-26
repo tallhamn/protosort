@@ -32,8 +32,10 @@ func Emit(headerComments string, syntax *Block, pkg *Block, options []*Block, im
 	}
 
 	// Options (sorted)
-	for _, opt := range options {
+	if len(options) > 0 {
 		out.WriteByte('\n')
+	}
+	for _, opt := range options {
 		writeBlockWithComments(&out, opt)
 	}
 
@@ -46,10 +48,7 @@ func Emit(headerComments string, syntax *Block, pkg *Block, options []*Block, im
 	// Imports (sorted)
 	if len(imports) > 0 {
 		out.WriteByte('\n')
-		for i, imp := range imports {
-			if i > 0 {
-				out.WriteByte('\n')
-			}
+		for _, imp := range imports {
 			writeBlockWithComments(&out, imp)
 		}
 	}
