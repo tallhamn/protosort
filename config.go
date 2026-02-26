@@ -25,7 +25,7 @@ type ConfigOrdering struct {
 type ConfigVerify struct {
 	Compiler   string   `toml:"compiler"`
 	ProtoPaths []string `toml:"proto_paths"`
-	Verify *bool `toml:"verify"`
+	Verify     *bool    `toml:"verify"`
 }
 
 // findConfigFile walks up from the current directory to find .protosort.toml,
