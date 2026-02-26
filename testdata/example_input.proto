@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package acme.fleet.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// A geographic coordinate.
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message ListVehiclesResponse {
+  repeated Vehicle vehicles = 1;
+  bool has_more = 2;
+}
+
+// Vehicle fleet management service.
+service FleetAPI {
+  // Get a single vehicle by ID.
+  rpc GetVehicle(GetVehicleRequest) returns (GetVehicleResponse);
+  // List all vehicles matching filters.
+  rpc ListVehicles(ListVehiclesRequest) returns (ListVehiclesResponse);
+}
+
+message GetVehicleRequest {
+  string vehicle_id = 1;
+}
+
+// The type of fuel a vehicle uses.
+enum FuelType {
+  FUEL_TYPE_INVALID = 0;
+  FUEL_TYPE_GASOLINE = 1;
+  FUEL_TYPE_DIESEL = 2;
+  FUEL_TYPE_ELECTRIC = 3;
+}
+
+message ListVehiclesRequest {
+  FuelType fuel_type_filter = 1;
+  int32 max_results = 2;
+}
+
+message GetVehicleResponse {
+  Vehicle vehicle = 1;
+}
+
+// A maintenance record for a vehicle.
+message MaintenanceRecord {
+  string id = 1;
+  google.protobuf.Timestamp service_date = 2;
+  string description = 3;
+}
+
+// A vehicle in the fleet.
+message Vehicle {
+  string id = 1;
+  string vin = 2;
+  FuelType fuel_type = 3;
+  Location current_location = 4;
+  repeated MaintenanceRecord maintenance_history = 5;
+}

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package test.v1;
+
+service Alpha {
+  rpc DoA(AReq) returns (ARes);
+}
+
+service Beta {
+  rpc DoB(BReq) returns (BRes);
+}
+
+message AReq {
+  string id = 1;
+}
+
+message ARes {
+  string val = 1;
+}
+
+message BReq {
+  string id = 1;
+}
+
+message BRes {
+  string val = 1;
+}

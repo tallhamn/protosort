@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package test.v1;
+
+message BidiRes { string v = 1; }
+
+message ClientReq { string v = 1; }
+
+service StreamSvc {
+  rpc ServerStream(ServerReq) returns (stream ServerRes);
+  rpc ClientStream(stream ClientReq) returns (ClientRes);
+  rpc BiDi(stream BidiReq) returns (stream BidiRes);
+}
+
+message ServerRes { string v = 1; }
+
+message ClientRes { string v = 1; }
+
+message BidiReq { string v = 1; }
+
+message ServerReq { string v = 1; }

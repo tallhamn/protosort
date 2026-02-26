@@ -1,0 +1,8 @@
+// License header.
+syntax = "proto3";
+
+package test.v1;
+
+option go_package = "test/v1";
+
+import "google/protobuf/empty.proto";

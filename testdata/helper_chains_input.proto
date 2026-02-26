@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package test.v1;
+
+// First consumer of A.
+message Consumer1 {
+  A a = 1;
+}
+
+// Top of chain.
+message A {
+  B b = 1;
+}
+
+// Second consumer of A.
+message Consumer2 {
+  A a = 1;
+}
+
+// Middle layer.
+message C {
+  D d = 1;
+}
+
+// Deepest leaf.
+message D {
+  string val = 1;
+}
+
+// Middle layer.
+message B {
+  C c = 1;
+}

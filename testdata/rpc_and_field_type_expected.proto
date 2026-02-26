@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package test.v1;
+
+service Svc {
+  rpc DoThing(SharedType) returns (Response);
+}
+
+// Used as both RPC request and a field type.
+message SharedType {
+  string val = 1;
+}
+
+message Response {
+  string val = 1;
+}
+
+message Wrapper {
+  SharedType inner = 1;
+}

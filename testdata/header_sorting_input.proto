@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package test.v1;
+
+import "z/zebra.proto";
+import "a/alpha.proto";
+import "m/middle.proto";
+
+option java_package = "com.test.v1";
+option go_package = "test/v1";
+option cc_enable_arenas = "true";
+
+message Foo {
+  string val = 1;
+}

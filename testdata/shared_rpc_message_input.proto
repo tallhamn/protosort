@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package test.v1;
+
+// Used by both RPCs as request.
+message SharedRequest {
+  string id = 1;
+}
+
+message FirstResponse {
+  string val = 1;
+}
+
+message SecondResponse {
+  string val = 1;
+}
+
+service Svc {
+  rpc First(SharedRequest) returns (FirstResponse);
+  rpc Second(SharedRequest) returns (SecondResponse);
+}

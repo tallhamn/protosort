@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package test.v1;
+
+message Foo {
+  string val = 1;
+}
+
+service EmptySvc {
+}
+
+message Bar {
+  Foo foo = 1;
+}

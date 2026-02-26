@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package test.v1;
+
+message GetThingResponse {
+  Thing thing = 1;
+}
+
+message Thing {
+  string id = 1;
+  string name = 2;
+}
+
+service ThingService {
+  rpc GetThing(GetThingRequest) returns (GetThingResponse);
+  rpc DeleteThing(DeleteThingRequest) returns (DeleteThingResponse);
+}
+
+message DeleteThingRequest {
+  string thing_id = 1;
+}
+
+message GetThingRequest {
+  string thing_id = 1;
+}
+
+message DeleteThingResponse {
+}

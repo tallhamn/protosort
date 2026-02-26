@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package test.v1;
+
+message Ping {
+  Pong reply = 1;
+}
+
+message Pong {
+  Ping reply = 1;
+}
+
+message TreeNode {
+  string value = 1;
+  TreeNode left = 2;
+  TreeNode right = 3;
+}

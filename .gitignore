@@ -1,0 +1,25 @@
+# Binary
+/protosort
+*.exe
+
+# Claude Code
+.claude/
+
+# Build output
+/dist/
+
+# Test artifacts
+coverage.out
+coverage.html
+*.prof
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

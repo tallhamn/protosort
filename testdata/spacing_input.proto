@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+
+
+package test.v1;
+
+
+import "google/protobuf/timestamp.proto";
+
+
+
+message Foo {
+  string val = 1;
+}
+
+
+message Bar {
+  string val = 1;
+}
+message Baz {
+  string val = 1;
+}
