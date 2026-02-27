@@ -22,7 +22,7 @@ func main() {
 	flag.BoolVar(&opts.Check, "check", false, "Exit non-zero if file would change (for CI)")
 	flag.BoolVar(&opts.Diff, "d", false, "Print unified diff of changes")
 	flag.BoolVar(&opts.Diff, "diff", false, "Print unified diff of changes")
-	flag.BoolVar(&opts.Verify, "verify", false, "Run protoc descriptor verification after sorting")
+	flag.BoolVar(&opts.Verify, "verify", false, "Verify declaration integrity after sorting (uses protoc if available)")
 	flag.StringVar(&opts.ProtocPath, "protoc", "", "Path to protoc binary")
 	flag.Var(&protoPaths, "proto-path", "Additional proto include paths (repeatable)")
 	flag.StringVar(&opts.SharedOrder, "shared-order", "alpha", "Ordering for core types: alpha or dependency")
