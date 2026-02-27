@@ -105,20 +105,18 @@ func Sort(content string, opts Options) (string, []string, error) {
 	refGraph := BuildRefGraph(bodyBlocks)
 
 	// Classify body blocks
-	serviceBlocks, rpcMessages, remainingBlocks := classifyServiceAndRPC(bodyBlocks)
+	serviceBlocks, rpcMessages, remainingBlocks, rpcRelatedNames := classifyServiceAndRPC(bodyBlocks)
+
+	// Build map of all body blocks for later lookups
+	bodyBlockMap := make(map[string]*Block)
+	for _, b := range bodyBlocks {
+		if b.Name != "" {
+			bodyBlockMap[b.Name] = b
+		}
+	}
 
 	// Classify remaining types
 	var coreBlocks, helperBlocks, unrefBlocks []*Block
-
-	// Build set of RPC message names for exclusion
-	rpcMsgNames := make(map[string]bool)
-	for _, b := range rpcMessages {
-		rpcMsgNames[b.Name] = true
-	}
-	svcNames := make(map[string]bool)
-	for _, b := range serviceBlocks {
-		svcNames[b.Name] = true
-	}
 
 	// Build outgoing references map: what local types does each type reference?
 	outgoingRefs := make(map[string][]string)
@@ -147,10 +145,6 @@ func Sort(content string, opts Options) (string, []string, error) {
 	}
 
 	for _, b := range remainingBlocks {
-		if svcNames[b.Name] || rpcMsgNames[b.Name] {
-			continue // already placed
-		}
-
 		hasOutgoingRefs := len(outgoingRefs[b.Name]) > 0
 		incomingRefCount := refCounts[b.Name]
 
@@ -202,6 +196,56 @@ func Sort(content string, opts Options) (string, []string, error) {
 	var ordered []*Block
 	emitted := make(map[string]bool)
 
+	// Helper function to collect all RPC-related dependencies recursively
+	var collectRPCDeps func(b *Block, collected map[string]*Block, visited map[string]bool)
+	collectRPCDeps = func(b *Block, collected map[string]*Block, visited map[string]bool) {
+		if visited[b.Name] {
+			return
+		}
+		visited[b.Name] = true
+
+		// Recursively collect dependencies first
+		refs := ExtractFieldTypes(b)
+		for _, ref := range refs {
+			if rpcRelatedNames[ref] {
+				if dep, ok := bodyBlockMap[ref]; ok {
+					collectRPCDeps(dep, collected, visited)
+				}
+			}
+		}
+		// Add this block after its dependencies
+		collected[b.Name] = b
+	}
+
+	// Helper function to emit an RPC message and all its dependencies
+	var emitRPCWithDeps func(b *Block, rpcOwner string)
+	emitRPCWithDeps = func(b *Block, rpcOwner string) {
+		if emitted[b.Name] {
+			return
+		}
+
+		// Collect all dependencies in dependency order
+		collected := make(map[string]*Block)
+		visited := make(map[string]bool)
+		collectRPCDeps(b, collected, visited)
+
+		// Emit the primary RPC message first
+		b.Section = SectionRequestResponse
+		b.Consumer = rpcOwner
+		emitted[b.Name] = true
+		ordered = append(ordered, b)
+
+		// Then emit dependencies in the order they were collected (dependencies before dependents)
+		for _, dep := range collected {
+			if !emitted[dep.Name] && dep.Name != b.Name {
+				dep.Section = SectionRequestResponse
+				dep.Consumer = rpcOwner
+				emitted[dep.Name] = true
+				ordered = append(ordered, dep)
+			}
+		}
+	}
+
 	var emitWithHelpers func(b *Block)
 	emitWithHelpers = func(b *Block) {
 		if emitted[b.Name] {
@@ -217,6 +261,9 @@ func Sort(content string, opts Options) (string, []string, error) {
 		ordered = append(ordered, b)
 	}
 
+	// Build map of message name -> RPC name for section headers
+	msgToRPC := buildMessageToRPCMap(serviceBlocks)
+
 	// Section 2: Services and request/response pairs
 	for _, svc := range serviceBlocks {
 		svc.Section = SectionService
@@ -224,8 +271,11 @@ func Sort(content string, opts Options) (string, []string, error) {
 		ordered = append(ordered, svc)
 	}
 	for _, msg := range rpcMessages {
-		msg.Section = SectionRequestResponse
-		emitWithHelpers(msg)
+		rpcName := msgToRPC[msg.Name]
+		if rpcName == "" {
+			rpcName = msg.Name // fallback
+		}
+		emitRPCWithDeps(msg, rpcName)
 	}
 
 	// Section 3: Standalone types (unreferenced) - emit without inline helpers
@@ -366,7 +416,8 @@ func topoSortBlocks(coreBlocks []*Block, allBlocks []*Block) []*Block {
 
 // classifyServiceAndRPC separates service blocks and their RPC request/response
 // messages from the rest. Messages appear in RPC declaration order.
-func classifyServiceAndRPC(blocks []*Block) (services []*Block, rpcMessages []*Block, remaining []*Block) {
+// Also returns a map of all RPC-related type names (including transitive deps).
+func classifyServiceAndRPC(blocks []*Block) (services []*Block, rpcMessages []*Block, remaining []*Block, rpcRelated map[string]bool) {
 	blockMap := make(map[string]*Block)
 	for _, b := range blocks {
 		if b.Name != "" {
@@ -383,35 +434,55 @@ func classifyServiceAndRPC(blocks []*Block) (services []*Block, rpcMessages []*B
 	}
 
 	if len(svcBlocks) == 0 {
-		return nil, nil, blocks
+		return nil, nil, blocks, nil
 	}
 
-	// Collect RPC request/response message names in order
-	rpcMsgNames := make(map[string]bool)
+	// Collect RPC request/response message names and all types they transitively reference
+	rpcRelatedNames := make(map[string]bool)
 	var rpcMsgs []*Block
 	emitted := make(map[string]bool)
 
+	// Helper function to recursively collect all types referenced by a type
+	var collectTransitiveRefs func(typeName string)
+	collectTransitiveRefs = func(typeName string) {
+		if rpcRelatedNames[typeName] {
+			return
+		}
+		b, ok := blockMap[typeName]
+		if !ok {
+			return
+		}
+		rpcRelatedNames[typeName] = true
+
+		// Recursively collect types this one references
+		refs := ExtractFieldTypes(b)
+		for _, ref := range refs {
+			collectTransitiveRefs(ref)
+		}
+	}
+
+	// Start with direct RPC request/response types
 	for _, svc := range svcBlocks {
 		for _, rpc := range svc.RPCs {
 			for _, typeName := range []string{rpc.RequestType, rpc.ResponseType} {
 				if b, ok := blockMap[typeName]; ok && !emitted[typeName] {
 					emitted[typeName] = true
-					rpcMsgNames[typeName] = true
 					rpcMsgs = append(rpcMsgs, b)
+					collectTransitiveRefs(typeName)
 				}
 			}
 		}
 	}
 
-	// Remaining blocks: everything not a service and not an RPC message
+	// Remaining blocks: everything not a service and not RPC-related
 	var rest []*Block
 	for _, b := range blocks {
-		if b.Kind != BlockService && !rpcMsgNames[b.Name] {
+		if b.Kind != BlockService && !rpcRelatedNames[b.Name] {
 			rest = append(rest, b)
 		}
 	}
 
-	return svcBlocks, rpcMsgs, rest
+	return svcBlocks, rpcMsgs, rest, rpcRelatedNames
 }
 
 // processComments applies --strip-commented-code to block comments.
@@ -733,9 +804,7 @@ func injectSectionHeaders(ordered []*Block, serviceBlocks []*Block) {
 			// No header — "service Foo" is self-evident
 		case SectionRequestResponse:
 			rpcName := msgToRPC[b.Name]
-			if rpcName == "" {
-				rpcName = msgToRPC[b.Consumer]
-			}
+			// Only inject header on direct RPC request/response messages, not dependencies
 			if rpcName != "" && !emittedRPCs[rpcName] {
 				header = sectionHeaderComment("Types for " + rpcName)
 				emittedRPCs[rpcName] = true

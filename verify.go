@@ -445,7 +445,7 @@ func VerboseReport(blocks []*Block) string {
 	refGraph := BuildRefGraph(blocks)
 
 	// Identify request/response types via classifyServiceAndRPC
-	_, rpcMessages, _ := classifyServiceAndRPC(blocks)
+	_, rpcMessages, _, _ := classifyServiceAndRPC(blocks)
 	rpcMsgNames := make(map[string]bool)
 	for _, b := range rpcMessages {
 		rpcMsgNames[b.Name] = true
