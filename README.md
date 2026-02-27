@@ -27,6 +27,9 @@ make build
 ## Quick start
 
 ```sh
+# What I use
+protosort --write --recursive --sort-rpcs grouped --section-headers proto/
+
 # Preview sorted output on stdout
 protosort api.proto
 
@@ -42,13 +45,6 @@ protosort --check api.proto
 # Recursively sort all .proto files in a directory
 protosort --write --recursive proto/
 
-# Also sort RPCs within services, grouped by resource name
-# The RPCs that are related (same resource name) are grouped together,
-# and then sorted by verb. Say your service declaration contains
-# GetUser, GetOrg, SetOrg, SetUser.
-# Then protosort would change the order to
-# GetUser, Setuser, GetOrg, SetOrg.
-protosort --write --recursive --sort-rpcs grouped proto/
 ```
 
 ## What it does
