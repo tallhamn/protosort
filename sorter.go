@@ -120,27 +120,56 @@ func Sort(content string, opts Options) (string, []string, error) {
 		svcNames[b.Name] = true
 	}
 
+	// Build outgoing references map: what local types does each type reference?
+	outgoingRefs := make(map[string][]string)
+	defined := make(map[string]bool)
+	for _, b := range bodyBlocks {
+		if b.Kind == BlockMessage || b.Kind == BlockEnum {
+			defined[b.Name] = true
+		}
+	}
+	for _, b := range bodyBlocks {
+		var refs []string
+		switch b.Kind {
+		case BlockMessage, BlockExtend:
+			refs = ExtractFieldTypes(b)
+		}
+		// Filter to only local types
+		var localRefs []string
+		for _, ref := range refs {
+			if defined[ref] && ref != b.Name {
+				localRefs = append(localRefs, ref)
+			}
+		}
+		if len(localRefs) > 0 {
+			outgoingRefs[b.Name] = localRefs
+		}
+	}
+
 	for _, b := range remainingBlocks {
 		if svcNames[b.Name] || rpcMsgNames[b.Name] {
 			continue // already placed
 		}
-		count := refCounts[b.Name]
-		if count >= 2 {
+
+		hasOutgoingRefs := len(outgoingRefs[b.Name]) > 0
+		incomingRefCount := refCounts[b.Name]
+
+		if hasOutgoingRefs {
+			// Composite: references other local types
 			b.Section = SectionCore
 			coreBlocks = append(coreBlocks, b)
-		} else if count == 1 {
+		} else if incomingRefCount > 0 {
+			// Helper: doesn't reference local types, but is referenced by others
 			b.Section = SectionHelper
-			// Find the single consumer
-			if refs, ok := refGraph[b.Name]; ok && len(refs) == 1 {
-				b.Consumer = refs[0]
+			// Store all consumers for potential use
+			if refs, ok := refGraph[b.Name]; ok && len(refs) > 0 {
+				b.Consumer = refs[0] // primary consumer
 			}
 			helperBlocks = append(helperBlocks, b)
 		} else {
+			// Standalone: doesn't reference local types and isn't referenced
 			b.Section = SectionUnreferenced
 			unrefBlocks = append(unrefBlocks, b)
-			if !opts.Quiet {
-				warnings = append(warnings, fmt.Sprintf("warning: %s %q is unreferenced in this file", b.Kind, b.Name))
-			}
 		}
 	}
 
@@ -199,18 +228,23 @@ func Sort(content string, opts Options) (string, []string, error) {
 		emitWithHelpers(msg)
 	}
 
-	// Section 3+4: Core types with helpers
-	for _, core := range coreBlocks {
-		emitWithHelpers(core)
-	}
-
-	// Section 5: Unreferenced types
+	// Section 3: Standalone types (unreferenced) - emit without inline helpers
 	for _, unref := range unrefBlocks {
-		emitWithHelpers(unref)
+		if !emitted[unref.Name] {
+			emitted[unref.Name] = true
+			ordered = append(ordered, unref)
+		}
 	}
 
-	// Emit any remaining helpers that weren't placed
-	// (e.g., helpers whose consumer is also a helper that was already emitted)
+	// Section 4: Composite types (core) - emit without inline helpers
+	for _, core := range coreBlocks {
+		if !emitted[core.Name] {
+			emitted[core.Name] = true
+			ordered = append(ordered, core)
+		}
+	}
+
+	// Section 5: All helper types
 	for _, h := range helperBlocks {
 		if !emitted[h.Name] {
 			emitted[h.Name] = true
@@ -603,13 +637,13 @@ func sectionHeaderComment(label string) string {
 
 // sectionHeaderRe matches the exact 3-line section header blocks that
 // injectSectionHeaders produces. It only strips headers with known labels
-// (Services, Types for <Name>, Shared Types, Unreferenced Types) so that
-// human-written decorative banners are never removed.
+// so that human-written decorative banners are never removed.
 var sectionHeaderRe = regexp.MustCompile(
-	`(?m)^` + regexp.QuoteMeta(sectionHeaderBanner) + `\n// (?:Services|Types for \w+|Shared Types|Unreferenced Types)\n` + regexp.QuoteMeta(sectionHeaderBanner) + `\n`)
+	`(?m)^` + regexp.QuoteMeta(sectionHeaderBanner) + `\n// (?:Services|Types for \w+|Shared Types|Core Types|Unreferenced Types|Composite Types(?: (?:\([^)]+\)|--[^\n]+))?|Helper Types(?: (?:\([^)]+\)|--[^\n]+))?|Standalone Types(?: (?:\([^)]+\)|--[^\n]+))?|Types unused by RPCs)\n` + regexp.QuoteMeta(sectionHeaderBanner) + `\n`)
 
-// Note: "Services" is kept in the strip regex so that headers from older runs
-// are cleaned up, even though we no longer inject it.
+// Note: Old section names (Services, Shared Types, Core Types, Unreferenced Types) are kept
+// in the strip regex so that headers from older runs are cleaned up.
+// The pattern matches optional descriptions in both parentheses or double-dash format.
 
 // stripSectionHeaders removes injected section header blocks from a comment string.
 func stripSectionHeaders(comments string) string {
@@ -639,23 +673,56 @@ func buildMessageToRPCMap(serviceBlocks []*Block) map[string]string {
 // injectSectionHeaders walks the ordered block list and prepends section
 // header comments when the section or RPC owner changes.
 func injectSectionHeaders(ordered []*Block, serviceBlocks []*Block) {
-	if len(ordered) == 0 || len(serviceBlocks) == 0 {
+	if len(ordered) == 0 {
 		return
 	}
 
-	msgToRPC := buildMessageToRPCMap(serviceBlocks)
+	hasServices := len(serviceBlocks) > 0
+	var msgToRPC map[string]string
+	if hasServices {
+		msgToRPC = buildMessageToRPCMap(serviceBlocks)
+	}
+
+	// Build map of ultimate root consumers for helpers
+	// This helps us determine if a helper chain leads to an unreferenced type
+	blockMap := make(map[string]*Block)
+	for _, b := range ordered {
+		blockMap[b.Name] = b
+	}
+
+	// Find the ultimate consumer (root of the helper chain)
+	var findUltimateConsumer func(string) string
+	findUltimateConsumer = func(name string) string {
+		if b, ok := blockMap[name]; ok && b.Section == SectionHelper {
+			return findUltimateConsumer(b.Consumer)
+		}
+		return name
+	}
 
 	emittedSections := make(map[Section]bool)
 	emittedRPCs := make(map[string]bool)
 
 	for _, b := range ordered {
 		section := b.Section
-		// Helpers inherit their consumer's section for header purposes
+
+		// Reclassify helpers based on their ultimate consumer
 		if section == SectionHelper {
-			if _, isRPC := msgToRPC[b.Consumer]; isRPC {
-				section = SectionRequestResponse
+			if hasServices {
+				// Service files: if primary consumer is RPC message, keep in RPC section
+				if b.Consumer != "" {
+					if _, isRPC := msgToRPC[b.Consumer]; isRPC {
+						section = SectionRequestResponse
+					}
+					// Otherwise keep as SectionHelper for shared section
+				}
 			} else {
-				section = SectionCore
+				// Non-service files: check if ultimate consumer is standalone
+				ultimateConsumer := findUltimateConsumer(b.Name)
+				if ultimateBlock, ok := blockMap[ultimateConsumer]; ok && ultimateBlock.Section == SectionUnreferenced {
+					// Helper chain leads to standalone type
+					section = SectionUnreferenced
+				}
+				// Otherwise keep as SectionHelper for its own section
 			}
 		}
 
@@ -675,11 +742,19 @@ func injectSectionHeaders(ordered []*Block, serviceBlocks []*Block) {
 			}
 		case SectionCore:
 			if !emittedSections[SectionCore] {
-				header = sectionHeaderComment("Shared Types")
+				header = sectionHeaderComment("Composite Types -- using other types")
+			}
+		case SectionHelper:
+			if !emittedSections[SectionHelper] {
+				header = sectionHeaderComment("Helper Types -- used in other types")
 			}
 		case SectionUnreferenced:
 			if !emittedSections[SectionUnreferenced] {
-				header = sectionHeaderComment("Unreferenced Types")
+				if hasServices {
+					header = sectionHeaderComment("Types unused by RPCs")
+				} else {
+					header = sectionHeaderComment("Standalone Types -- not referenced elsewhere in this file")
+				}
 			}
 		}
 		emittedSections[section] = true

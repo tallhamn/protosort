@@ -48,6 +48,11 @@ func main() {
 	flag.Parse()
 	opts.ProtoPaths = []string(protoPaths)
 
+	// When preserve-dividers is enabled, automatically enable section headers
+	if opts.PreserveDividers {
+		opts.SectionHeaders = true
+	}
+
 	// Track which flags were explicitly set on the command line
 	setFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {
