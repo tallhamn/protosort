@@ -35,6 +35,7 @@ func main() {
 	flag.BoolVar(&opts.Quiet, "q", false, "Suppress warnings")
 	flag.BoolVar(&opts.Quiet, "quiet", false, "Suppress warnings")
 	flag.BoolVar(&opts.Annotate, "annotate", false, "Add classification annotations to comments")
+	flag.BoolVar(&opts.SectionHeaders, "section-headers", false, "Insert section header comments")
 	flag.StringVar(&opts.ConfigFile, "config", "", "Path to .protosort.toml config file")
 
 	flag.Usage = func() {

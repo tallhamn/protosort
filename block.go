@@ -89,5 +89,6 @@ type Options struct {
 	Quiet            bool
 	Recursive        bool
 	Annotate         bool
+	SectionHeaders   bool
 	ConfigFile       string
 }

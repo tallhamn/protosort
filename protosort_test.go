@@ -25,10 +25,17 @@ func TestGolden(t *testing.T) {
 		t.Fatal("no golden-file test pairs found in testdata/")
 	}
 
+	// Golden files requiring non-default options are tested separately.
+	skipGolden := map[string]bool{"section_headers": true}
+
 	for _, inputPath := range pairs {
 		expectedPath := strings.Replace(inputPath, "_input.proto", "_expected.proto", 1)
 		name := strings.TrimPrefix(inputPath, "testdata/")
 		name = strings.TrimSuffix(name, "_input.proto")
+
+		if skipGolden[name] {
+			continue
+		}
 
 		t.Run(name, func(t *testing.T) {
 			inputBytes, err := os.ReadFile(inputPath)
@@ -2321,6 +2328,229 @@ message ARes { string v = 1; }
 	}
 	if err := verifyContentIntegrity(input, output, opts); err != nil {
 		t.Errorf("content integrity failed with --sort-rpcs: %v", err)
+	}
+}
+
+// ============================================================
+// Section header tests
+// ============================================================
+
+func TestSort_SectionHeaders_Golden(t *testing.T) {
+	inputBytes, err := os.ReadFile("testdata/section_headers_input.proto")
+	if err != nil {
+		t.Fatalf("reading input: %v", err)
+	}
+	expectedBytes, err := os.ReadFile("testdata/section_headers_expected.proto")
+	if err != nil {
+		t.Fatalf("reading expected: %v", err)
+	}
+
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(string(inputBytes), opts)
+	if err != nil {
+		t.Fatalf("Sort failed: %v", err)
+	}
+
+	if output != string(expectedBytes) {
+		t.Errorf("output mismatch.\nDiff:\n%s",
+			DiffStrings(string(expectedBytes), output, "expected", "got"))
+	}
+}
+
+func TestSort_SectionHeaders(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc GetOrg(GetOrgRequest) returns (GetOrgResponse);
+}
+
+message GetOrgRequest { string id = 1; }
+message GetOrgResponse { string v = 1; }
+message Shared { string v = 1; }
+message U1 { Shared s = 1; }
+message U2 { Shared s = 1; }
+message Orphan { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Services get no header — "service S" is self-evident
+	if strings.Contains(output, "// Services") {
+		t.Error("Services header should not be injected")
+	}
+	if !strings.Contains(output, "// Types for GetOrg") {
+		t.Error("missing Types for GetOrg header")
+	}
+	if !strings.Contains(output, "// Shared Types") {
+		t.Error("missing Shared Types header")
+	}
+	if !strings.Contains(output, "// Unreferenced Types") {
+		t.Error("missing Unreferenced Types header")
+	}
+	assertOrder(t, output,
+		"service S",
+		"// Types for GetOrg", "message GetOrgRequest",
+		"// Shared Types", "message Shared",
+		"// Unreferenced Types", "message Orphan")
+}
+
+func TestSort_SectionHeaders_RPCSubHeaders(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc GetOrg(GetOrgReq) returns (GetOrgRes);
+  rpc ListOrgs(ListOrgsReq) returns (ListOrgsRes);
+}
+
+message GetOrgReq { string id = 1; }
+message GetOrgRes { string v = 1; }
+message ListOrgsReq { string v = 1; }
+message ListOrgsRes { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "// Types for GetOrg") {
+		t.Error("missing Types for GetOrg sub-header")
+	}
+	if !strings.Contains(output, "// Types for ListOrgs") {
+		t.Error("missing Types for ListOrgs sub-header")
+	}
+	assertOrder(t, output,
+		"// Types for GetOrg", "message GetOrgReq", "message GetOrgRes",
+		"// Types for ListOrgs", "message ListOrgsReq", "message ListOrgsRes")
+}
+
+func TestSort_SectionHeaders_Idempotent(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S { rpc Do(Req) returns (Res); }
+message Req { string v = 1; }
+message Res { string v = 1; }
+message Shared { string v = 1; }
+message U1 { Shared s = 1; }
+message U2 { Shared s = 1; }
+message Orphan { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	pass1, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatalf("first Sort: %v", err)
+	}
+	pass2, _, err := Sort(pass1, opts)
+	if err != nil {
+		t.Fatalf("second Sort: %v", err)
+	}
+	if pass1 != pass2 {
+		t.Errorf("not idempotent.\nDiff:\n%s",
+			DiffStrings(pass1, pass2, "pass1", "pass2"))
+	}
+}
+
+func TestSort_SectionHeaders_StrippedWhenDisabled(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S { rpc Do(Req) returns (Res); }
+message Req { string v = 1; }
+message Res { string v = 1; }
+message Orphan { string v = 1; }
+`
+	// First sort with headers
+	opts := Options{Quiet: true, SectionHeaders: true}
+	withHeaders, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(withHeaders, "// Types for Do") {
+		t.Fatal("headers should be present after first sort")
+	}
+
+	// Re-sort without headers — should strip them
+	opts.SectionHeaders = false
+	withoutHeaders, _, err := Sort(withHeaders, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(withoutHeaders, sectionHeaderBanner) {
+		t.Error("section headers should be stripped when --section-headers is disabled")
+	}
+}
+
+func TestSort_SectionHeaders_NoService(t *testing.T) {
+	input := `syntax = "proto3";
+
+message Foo { Bar b = 1; }
+message Baz { Bar b = 1; }
+message Bar { string v = 1; }
+message Orphan { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No service → no headers at all (headers only add value with service context)
+	if strings.Contains(output, sectionHeaderBanner) {
+		t.Error("no section headers expected when there are no services")
+	}
+}
+
+func TestSort_SectionHeaders_EmptySection(t *testing.T) {
+	// Only services and RPC types, no shared or unreferenced
+	input := `syntax = "proto3";
+
+service S { rpc Do(Req) returns (Res); }
+message Req { string v = 1; }
+message Res { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output, "// Services") {
+		t.Error("Services header should not be injected")
+	}
+	if !strings.Contains(output, "// Types for Do") {
+		t.Error("missing Types for Do header")
+	}
+	// Empty sections should have no headers
+	if strings.Contains(output, "// Shared Types") {
+		t.Error("Shared Types header should not appear when section is empty")
+	}
+	if strings.Contains(output, "// Unreferenced Types") {
+		t.Error("Unreferenced Types header should not appear when section is empty")
+	}
+}
+
+func TestSort_SectionHeaders_ContentIntegrity(t *testing.T) {
+	input := `syntax = "proto3";
+
+service S {
+  rpc GetOrg(GetOrgReq) returns (GetOrgRes);
+  rpc ListOrgs(ListOrgsReq) returns (ListOrgsRes);
+}
+
+message GetOrgReq { string id = 1; }
+message GetOrgRes { string v = 1; }
+message ListOrgsReq { string v = 1; }
+message ListOrgsRes { string v = 1; }
+message Shared { string v = 1; }
+message U1 { Shared s = 1; }
+message U2 { Shared s = 1; }
+message Orphan { string v = 1; }
+`
+	opts := Options{Quiet: true, SectionHeaders: true}
+	output, _, err := Sort(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyContentIntegrity(input, output, opts); err != nil {
+		t.Errorf("content integrity failed: %v", err)
 	}
 }
 

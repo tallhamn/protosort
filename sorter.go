@@ -33,6 +33,10 @@ func Sort(content string, opts Options) (string, []string, error) {
 
 	// Process comments on all blocks
 	for _, b := range blocks {
+		// Strip section headers first (before divider stripping, since the
+		// banner lines would be caught by the divider regex and break the
+		// 3-line pattern match).
+		b.Comments = stripSectionHeaders(b.Comments)
 		processComments(b, opts)
 		// If not preserving dividers, strip section divider comments from block comments
 		if !opts.PreserveDividers {
@@ -217,6 +221,11 @@ func Sort(content string, opts Options) (string, []string, error) {
 	// Inject classification annotations if requested
 	if opts.Annotate {
 		annotateBlocks(ordered, refGraph)
+	}
+
+	// Inject section headers if requested (stripping was done earlier)
+	if opts.SectionHeaders {
+		injectSectionHeaders(ordered, serviceBlocks)
 	}
 
 	// Build the output
@@ -582,6 +591,109 @@ func containsDivider(comments string) bool {
 		}
 	}
 	return false
+}
+
+// sectionHeaderBanner is the repeated line used in section headers.
+const sectionHeaderBanner = "// ============================================================================"
+
+// sectionHeaderComment returns a 3-line section header comment block for the given label.
+func sectionHeaderComment(label string) string {
+	return sectionHeaderBanner + "\n// " + label + "\n" + sectionHeaderBanner + "\n"
+}
+
+// sectionHeaderRe matches the exact 3-line section header blocks that
+// injectSectionHeaders produces. It only strips headers with known labels
+// (Services, Types for <Name>, Shared Types, Unreferenced Types) so that
+// human-written decorative banners are never removed.
+var sectionHeaderRe = regexp.MustCompile(
+	`(?m)^` + regexp.QuoteMeta(sectionHeaderBanner) + `\n// (?:Services|Types for \w+|Shared Types|Unreferenced Types)\n` + regexp.QuoteMeta(sectionHeaderBanner) + `\n`)
+
+// Note: "Services" is kept in the strip regex so that headers from older runs
+// are cleaned up, even though we no longer inject it.
+
+// stripSectionHeaders removes injected section header blocks from a comment string.
+func stripSectionHeaders(comments string) string {
+	if comments == "" {
+		return ""
+	}
+	return sectionHeaderRe.ReplaceAllString(comments, "")
+}
+
+// buildMessageToRPCMap builds a map from message name → RPC name using
+// service blocks' RPCs. When a message is used by multiple RPCs, the first
+// occurrence wins (matching the order-based placement logic).
+func buildMessageToRPCMap(serviceBlocks []*Block) map[string]string {
+	m := make(map[string]string)
+	for _, svc := range serviceBlocks {
+		for _, rpc := range svc.RPCs {
+			for _, typeName := range []string{rpc.RequestType, rpc.ResponseType} {
+				if _, exists := m[typeName]; !exists {
+					m[typeName] = rpc.Name
+				}
+			}
+		}
+	}
+	return m
+}
+
+// injectSectionHeaders walks the ordered block list and prepends section
+// header comments when the section or RPC owner changes.
+func injectSectionHeaders(ordered []*Block, serviceBlocks []*Block) {
+	if len(ordered) == 0 || len(serviceBlocks) == 0 {
+		return
+	}
+
+	msgToRPC := buildMessageToRPCMap(serviceBlocks)
+
+	emittedSections := make(map[Section]bool)
+	emittedRPCs := make(map[string]bool)
+
+	for _, b := range ordered {
+		section := b.Section
+		// Helpers inherit their consumer's section for header purposes
+		if section == SectionHelper {
+			if _, isRPC := msgToRPC[b.Consumer]; isRPC {
+				section = SectionRequestResponse
+			} else {
+				section = SectionCore
+			}
+		}
+
+		var header string
+
+		switch section {
+		case SectionService:
+			// No header — "service Foo" is self-evident
+		case SectionRequestResponse:
+			rpcName := msgToRPC[b.Name]
+			if rpcName == "" {
+				rpcName = msgToRPC[b.Consumer]
+			}
+			if rpcName != "" && !emittedRPCs[rpcName] {
+				header = sectionHeaderComment("Types for " + rpcName)
+				emittedRPCs[rpcName] = true
+			}
+		case SectionCore:
+			if !emittedSections[SectionCore] {
+				header = sectionHeaderComment("Shared Types")
+			}
+		case SectionUnreferenced:
+			if !emittedSections[SectionUnreferenced] {
+				header = sectionHeaderComment("Unreferenced Types")
+			}
+		}
+		emittedSections[section] = true
+
+		if header != "" {
+			// Trim leading blank lines from existing comments to avoid
+			// double blank lines between the header and the comment.
+			c := b.Comments
+			for strings.HasPrefix(c, "\n") {
+				c = c[1:]
+			}
+			b.Comments = header + c
+		}
+	}
 }
 
 // isProto2 checks if the file content declares proto2 syntax.

@@ -19,6 +19,7 @@ type ConfigOrdering struct {
 	SortRPCs           string `toml:"sort_rpcs"`
 	PreserveDividers   *bool  `toml:"preserve_dividers"`
 	StripCommentedCode *bool  `toml:"strip_commented_code"`
+	SectionHeaders     *bool  `toml:"section_headers"`
 }
 
 // ConfigVerify holds verification-related config.
@@ -83,6 +84,9 @@ func MergeConfig(opts *Options, cfg *Config, setFlags map[string]bool) {
 	}
 	if cfg.Ordering.StripCommentedCode != nil && !setFlags["strip-commented-code"] {
 		opts.StripCommented = *cfg.Ordering.StripCommentedCode
+	}
+	if cfg.Ordering.SectionHeaders != nil && !setFlags["section-headers"] {
+		opts.SectionHeaders = *cfg.Ordering.SectionHeaders
 	}
 
 	if cfg.Verify.Compiler != "" && !setFlags["protoc"] {

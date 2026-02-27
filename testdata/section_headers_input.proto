@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package test.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "test/v1";
+
+message ListOrgsResponse {
+  repeated Org orgs = 1;
+}
+
+message Org {
+  string id = 1;
+  Address address = 2;
+}
+
+message GetOrgRequest {
+  string id = 1;
+}
+
+// Deprecated type no longer used.
+message LegacyConfig {
+  string key = 1;
+}
+
+message GetOrgResponse {
+  Org org = 1;
+}
+
+message ListOrgsRequest {
+  int32 page_size = 1;
+}
+
+// Address represents a physical address.
+message Address {
+  string street = 1;
+  string city = 2;
+}
+
+service OrgService {
+  rpc GetOrg(GetOrgRequest) returns (GetOrgResponse);
+  rpc ListOrgs(ListOrgsRequest) returns (ListOrgsResponse);
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+}
