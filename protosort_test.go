@@ -12,6 +12,17 @@ import (
 
 var defaultOpts = Options{Quiet: true}
 
+// readFileNormalized reads a file and normalizes \r\n to \n so golden
+// tests pass on Windows where git may check out files with CRLF.
+func readFileNormalized(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
+}
+
 // ============================================================
 // Golden-file integration tests
 // ============================================================
@@ -38,21 +49,14 @@ func TestGolden(t *testing.T) {
 		}
 
 		t.Run(name, func(t *testing.T) {
-			inputBytes, err := os.ReadFile(inputPath)
-			if err != nil {
-				t.Fatalf("reading input: %v", err)
-			}
-			expectedBytes, err := os.ReadFile(expectedPath)
-			if err != nil {
-				t.Fatalf("reading expected %s: %v", expectedPath, err)
-			}
+			input := readFileNormalized(t, inputPath)
+			expected := readFileNormalized(t, expectedPath)
 
-			output, _, err := Sort(string(inputBytes), defaultOpts)
+			output, _, err := Sort(input, defaultOpts)
 			if err != nil {
 				t.Fatalf("Sort failed: %v", err)
 			}
 
-			expected := string(expectedBytes)
 			if output != expected {
 				t.Errorf("output mismatch.\nDiff:\n%s",
 					DiffStrings(expected, output, "expected", "got"))
@@ -78,12 +82,9 @@ func TestIdempotency_AllFixtures(t *testing.T) {
 		name = strings.TrimSuffix(name, "_input.proto")
 
 		t.Run(name, func(t *testing.T) {
-			inputBytes, err := os.ReadFile(inputPath)
-			if err != nil {
-				t.Fatalf("reading input: %v", err)
-			}
+			input := readFileNormalized(t, inputPath)
 
-			pass1, _, err := Sort(string(inputBytes), defaultOpts)
+			pass1, _, err := Sort(input, defaultOpts)
 			if err != nil {
 				t.Fatalf("first Sort failed: %v", err)
 			}
@@ -117,11 +118,7 @@ func TestContentIntegrity_AllFixtures(t *testing.T) {
 		name = strings.TrimSuffix(name, "_input.proto")
 
 		t.Run(name, func(t *testing.T) {
-			inputBytes, err := os.ReadFile(inputPath)
-			if err != nil {
-				t.Fatalf("reading input: %v", err)
-			}
-			original := string(inputBytes)
+			original := readFileNormalized(t, inputPath)
 			sorted, _, err := Sort(original, defaultOpts)
 			if err != nil {
 				t.Fatalf("Sort failed: %v", err)
@@ -2336,24 +2333,18 @@ message ARes { string v = 1; }
 // ============================================================
 
 func TestSort_SectionHeaders_Golden(t *testing.T) {
-	inputBytes, err := os.ReadFile("testdata/section_headers_input.proto")
-	if err != nil {
-		t.Fatalf("reading input: %v", err)
-	}
-	expectedBytes, err := os.ReadFile("testdata/section_headers_expected.proto")
-	if err != nil {
-		t.Fatalf("reading expected: %v", err)
-	}
+	input := readFileNormalized(t, "testdata/section_headers_input.proto")
+	expected := readFileNormalized(t, "testdata/section_headers_expected.proto")
 
 	opts := Options{Quiet: true, SectionHeaders: true}
-	output, _, err := Sort(string(inputBytes), opts)
+	output, _, err := Sort(input, opts)
 	if err != nil {
 		t.Fatalf("Sort failed: %v", err)
 	}
 
-	if output != string(expectedBytes) {
+	if output != expected {
 		t.Errorf("output mismatch.\nDiff:\n%s",
-			DiffStrings(string(expectedBytes), output, "expected", "got"))
+			DiffStrings(expected, output, "expected", "got"))
 	}
 }
 
