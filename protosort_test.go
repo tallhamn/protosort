@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,8 +42,7 @@ func TestGolden(t *testing.T) {
 
 	for _, inputPath := range pairs {
 		expectedPath := strings.Replace(inputPath, "_input.proto", "_expected.proto", 1)
-		name := strings.TrimPrefix(inputPath, "testdata/")
-		name = strings.TrimSuffix(name, "_input.proto")
+		name := strings.TrimSuffix(filepath.Base(inputPath), "_input.proto")
 
 		if skipGolden[name] {
 			continue
@@ -78,8 +78,7 @@ func TestIdempotency_AllFixtures(t *testing.T) {
 		t.Fatal("no fixture files found")
 	}
 	for _, inputPath := range pairs {
-		name := strings.TrimPrefix(inputPath, "testdata/")
-		name = strings.TrimSuffix(name, "_input.proto")
+		name := strings.TrimSuffix(filepath.Base(inputPath), "_input.proto")
 
 		t.Run(name, func(t *testing.T) {
 			input := readFileNormalized(t, inputPath)
@@ -114,8 +113,7 @@ func TestContentIntegrity_AllFixtures(t *testing.T) {
 		t.Fatal("no fixture files found")
 	}
 	for _, inputPath := range pairs {
-		name := strings.TrimPrefix(inputPath, "testdata/")
-		name = strings.TrimSuffix(name, "_input.proto")
+		name := strings.TrimSuffix(filepath.Base(inputPath), "_input.proto")
 
 		t.Run(name, func(t *testing.T) {
 			original := readFileNormalized(t, inputPath)
@@ -2019,6 +2017,9 @@ func TestSort_TypedErrors(t *testing.T) {
 // ============================================================
 
 func TestCLI_WritePreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not supported on Windows")
+	}
 	input := `syntax = "proto3";
 
 message B { string v = 1; }
