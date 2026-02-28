@@ -2,19 +2,7 @@ syntax = "proto3";
 
 package test.v1;
 
-message Leaf {
-  string val = 1;
-}
-
-message Middle {
-  Leaf leaf = 1;
-}
-
-message Root {
-  Middle mid = 1;
-}
-
-message Shared {
+message Orphan {
   string val = 1;
 }
 
@@ -26,8 +14,12 @@ message ConsumerB {
   Root root = 1;
 }
 
-message Orphan {
-  string val = 1;
+message Middle {
+  Leaf leaf = 1;
+}
+
+message Root {
+  Middle mid = 1;
 }
 
 message UserX {
@@ -36,4 +28,12 @@ message UserX {
 
 message UserY {
   Shared s = 1;
+}
+
+message Leaf {
+  string val = 1;
+}
+
+message Shared {
+  string val = 1;
 }

@@ -11,13 +11,13 @@ message GetThingRequest {
   string thing_id = 1;
 }
 
+message GetThingResponse {
+  Thing thing = 1;
+}
+
 message Thing {
   string id = 1;
   string name = 2;
-}
-
-message GetThingResponse {
-  Thing thing = 1;
 }
 
 message DeleteThingRequest {

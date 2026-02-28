@@ -7,15 +7,6 @@ package test.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// This is a detached comment about Bravo.
-
-// This is a leading comment about Bravo.
-message Bravo {
-  string name = 1;
-  // Interior comment stays put.
-  int32 age = 2; // Inline comment stays put.
-}
-
 // Alpha's description.
 message Alpha {
   Bravo b = 1;
@@ -23,4 +14,13 @@ message Alpha {
 
 message Charlie {
   Bravo b = 1;
+}
+
+// This is a detached comment about Bravo.
+
+// This is a leading comment about Bravo.
+message Bravo {
+  string name = 1;
+  // Interior comment stays put.
+  int32 age = 2; // Inline comment stays put.
 }

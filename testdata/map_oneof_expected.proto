@@ -2,18 +2,6 @@ syntax = "proto3";
 
 package test.v1;
 
-message CreatePayload {
-  string name = 1;
-}
-
-message DeletePayload {
-  string entity_id = 1;
-}
-
-message UpdatePayload {
-  string name = 1;
-}
-
 message Event {
   string id = 1;
   oneof payload {
@@ -23,15 +11,27 @@ message Event {
   }
 }
 
-message SettingValue {
-  string raw = 1;
+message Processor {
+  Event event = 1;
+  Settings config = 2;
 }
 
 message Settings {
   map<string, SettingValue> entries = 1;
 }
 
-message Processor {
-  Event event = 1;
-  Settings config = 2;
+message CreatePayload {
+  string name = 1;
+}
+
+message DeletePayload {
+  string entity_id = 1;
+}
+
+message SettingValue {
+  string raw = 1;
+}
+
+message UpdatePayload {
+  string name = 1;
 }

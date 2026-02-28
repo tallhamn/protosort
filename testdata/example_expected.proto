@@ -20,16 +20,6 @@ message GetVehicleResponse {
   Vehicle vehicle = 1;
 }
 
-message ListVehiclesRequest {
-  FuelType fuel_type_filter = 1;
-  int32 max_results = 2;
-}
-
-message ListVehiclesResponse {
-  repeated Vehicle vehicles = 1;
-  bool has_more = 2;
-}
-
 // The type of fuel a vehicle uses.
 enum FuelType {
   FUEL_TYPE_INVALID = 0;
@@ -58,4 +48,14 @@ message Vehicle {
   FuelType fuel_type = 3;
   Location current_location = 4;
   repeated MaintenanceRecord maintenance_history = 5;
+}
+
+message ListVehiclesRequest {
+  FuelType fuel_type_filter = 1;
+  int32 max_results = 2;
+}
+
+message ListVehiclesResponse {
+  repeated Vehicle vehicles = 1;
+  bool has_more = 2;
 }

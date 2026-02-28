@@ -196,25 +196,26 @@ func Sort(content string, opts Options) (string, []string, error) {
 	var ordered []*Block
 	emitted := make(map[string]bool)
 
-	// Helper function to collect all RPC-related dependencies recursively
-	var collectRPCDeps func(b *Block, collected map[string]*Block, visited map[string]bool)
-	collectRPCDeps = func(b *Block, collected map[string]*Block, visited map[string]bool) {
-		if visited[b.Name] {
+	// Helper function to collect all RPC-related dependencies recursively.
+	// Returns blocks in dependency-first order (deterministic via slice).
+	var collectRPCDeps func(b *Block, collected *[]*Block, seen map[string]bool)
+	collectRPCDeps = func(b *Block, collected *[]*Block, seen map[string]bool) {
+		if seen[b.Name] {
 			return
 		}
-		visited[b.Name] = true
+		seen[b.Name] = true
 
 		// Recursively collect dependencies first
 		refs := ExtractFieldTypes(b)
 		for _, ref := range refs {
 			if rpcRelatedNames[ref] {
 				if dep, ok := bodyBlockMap[ref]; ok {
-					collectRPCDeps(dep, collected, visited)
+					collectRPCDeps(dep, collected, seen)
 				}
 			}
 		}
 		// Add this block after its dependencies
-		collected[b.Name] = b
+		*collected = append(*collected, b)
 	}
 
 	// Helper function to emit an RPC message and all its dependencies
@@ -225,9 +226,9 @@ func Sort(content string, opts Options) (string, []string, error) {
 		}
 
 		// Collect all dependencies in dependency order
-		collected := make(map[string]*Block)
-		visited := make(map[string]bool)
-		collectRPCDeps(b, collected, visited)
+		var collected []*Block
+		seen := make(map[string]bool)
+		collectRPCDeps(b, &collected, seen)
 
 		// Emit the primary RPC message first
 		b.Section = SectionRequestResponse
@@ -294,7 +295,10 @@ func Sort(content string, opts Options) (string, []string, error) {
 		}
 	}
 
-	// Section 5: All helper types
+	// Section 5: All helper types (sorted alphabetically for deterministic output)
+	sort.Slice(helperBlocks, func(i, j int) bool {
+		return helperBlocks[i].Name < helperBlocks[j].Name
+	})
 	for _, h := range helperBlocks {
 		if !emitted[h.Name] {
 			emitted[h.Name] = true

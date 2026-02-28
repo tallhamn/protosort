@@ -702,7 +702,9 @@ message Helper { string v = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertOrder(t, output, "message Helper", "message Consumer")
+	// Consumer and Other are core (outgoing refs); Helper is helper (incoming only).
+	// Core (alphabetical) comes before helpers.
+	assertOrder(t, output, "message Consumer", "message Other", "message Helper")
 }
 
 func TestSort_HelperChainBottomUp(t *testing.T) {
@@ -718,9 +720,9 @@ message Y { A a = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A is core (2 refs: X,Y). B is helper for A. C is helper for B.
-	// Chain: C, B, A
-	assertOrder(t, output, "message C", "message B", "message A")
+	// A, B, X, Y are core (outgoing refs). C is helper (incoming only).
+	// Core (alphabetical): A, B, X, Y. Then helpers: C.
+	assertOrder(t, output, "message A", "message B", "message X", "message Y", "message C")
 }
 
 func TestSort_UnreferencedLast(t *testing.T) {
@@ -731,21 +733,12 @@ message Used { string v = 1; }
 message C1 { Used u = 1; }
 message C2 { Used u = 1; }
 `
-	output, warnings, err := Sort(input, Options{})
+	output, _, err := Sort(input, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertOrder(t, output, "message Used", "message Orphan")
-
-	found := false
-	for _, w := range warnings {
-		if strings.Contains(w, "Orphan") {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("expected warning about unreferenced Orphan")
-	}
+	// Orphan is unreferenced (section 3), C1/C2 are core (section 4), Used is helper (section 5).
+	assertOrder(t, output, "message Orphan", "message C1", "message C2", "message Used")
 }
 
 func TestSort_UnreferencedAlphabetical(t *testing.T) {
@@ -773,9 +766,8 @@ message Bar { string v = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Bar is core (2 refs). Foo and Baz are unreferenced.
-	assertOrder(t, output, "message Bar", "message Baz")
-	assertOrder(t, output, "message Bar", "message Foo")
+	// Baz and Foo are core (outgoing refs to Bar). Bar is helper (incoming only).
+	assertOrder(t, output, "message Baz", "message Foo", "message Bar")
 	if strings.Contains(output, "service") {
 		t.Error("no service should appear in output")
 	}
@@ -1579,17 +1571,8 @@ message Orphan2 { string v = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := map[string]bool{}
-	for _, w := range warnings {
-		if strings.Contains(w, "Orphan1") {
-			found["Orphan1"] = true
-		}
-		if strings.Contains(w, "Orphan2") {
-			found["Orphan2"] = true
-		}
-	}
-	if !found["Orphan1"] || !found["Orphan2"] {
-		t.Errorf("expected warnings for both orphans, got warnings: %v", warnings)
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for unreferenced types, got: %v", warnings)
 	}
 }
 
@@ -1801,8 +1784,8 @@ message Orphan { string v = 1; }
 // ============================================================
 
 func TestSort_SharedOrderDependency(t *testing.T) {
-	// C depends on nothing, B depends on C, A depends on B
-	// All are core (2+ refs each)
+	// A depends on B, B depends on C. X and Y reference A/B/C.
+	// A, B, X, Y are core (outgoing refs); C is helper (incoming only).
 	input := `syntax = "proto3";
 
 message A { B b = 1; }
@@ -1816,8 +1799,9 @@ message Y { B b = 1; A a = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// In dependency order: C before B before A (dependencies first)
-	assertOrder(t, output, "message C", "message B", "message A")
+	// In dependency order for core: B before A (B is A's dependency).
+	// C is helper, emitted after core.
+	assertOrder(t, output, "message B", "message A", "message C")
 }
 
 // ============================================================
@@ -2375,17 +2359,21 @@ message Orphan { string v = 1; }
 	if !strings.Contains(output, "// Types for GetOrg") {
 		t.Error("missing Types for GetOrg header")
 	}
-	if !strings.Contains(output, "// Shared Types") {
-		t.Error("missing Shared Types header")
+	if !strings.Contains(output, "// Composite Types") {
+		t.Error("missing Composite Types header")
 	}
-	if !strings.Contains(output, "// Unreferenced Types") {
-		t.Error("missing Unreferenced Types header")
+	if !strings.Contains(output, "// Types unused by RPCs") {
+		t.Error("missing Types unused by RPCs header")
+	}
+	if !strings.Contains(output, "// Helper Types") {
+		t.Error("missing Helper Types header")
 	}
 	assertOrder(t, output,
 		"service S",
 		"// Types for GetOrg", "message GetOrgRequest",
-		"// Shared Types", "message Shared",
-		"// Unreferenced Types", "message Orphan")
+		"// Types unused by RPCs", "message Orphan",
+		"// Composite Types", "message U1",
+		"// Helper Types", "message Shared")
 }
 
 func TestSort_SectionHeaders_RPCSubHeaders(t *testing.T) {
@@ -2485,10 +2473,21 @@ message Orphan { string v = 1; }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// No service → no headers at all (headers only add value with service context)
-	if strings.Contains(output, sectionHeaderBanner) {
-		t.Error("no section headers expected when there are no services")
+	// Non-service files now get section headers too.
+	// Foo/Baz are composite (outgoing refs), Orphan is standalone, Bar is helper.
+	if !strings.Contains(output, "// Standalone Types") {
+		t.Error("missing Standalone Types header")
 	}
+	if !strings.Contains(output, "// Composite Types") {
+		t.Error("missing Composite Types header")
+	}
+	if !strings.Contains(output, "// Helper Types") {
+		t.Error("missing Helper Types header")
+	}
+	assertOrder(t, output,
+		"// Standalone Types", "message Orphan",
+		"// Composite Types", "message Baz",
+		"// Helper Types", "message Bar")
 }
 
 func TestSort_SectionHeaders_EmptySection(t *testing.T) {

@@ -22,20 +22,6 @@ message GetOrgResponse {
   Org org = 1;
 }
 
-// ============================================================================
-// Types for ListOrgs
-// ============================================================================
-message ListOrgsRequest {
-  int32 page_size = 1;
-}
-
-message ListOrgsResponse {
-  repeated Org orgs = 1;
-}
-
-// ============================================================================
-// Shared Types
-// ============================================================================
 // Address represents a physical address.
 message Address {
   string street = 1;
@@ -48,7 +34,18 @@ message Org {
 }
 
 // ============================================================================
-// Unreferenced Types
+// Types for ListOrgs
+// ============================================================================
+message ListOrgsRequest {
+  int32 page_size = 1;
+}
+
+message ListOrgsResponse {
+  repeated Org orgs = 1;
+}
+
+// ============================================================================
+// Types unused by RPCs
 // ============================================================================
 // Deprecated type no longer used.
 message LegacyConfig {

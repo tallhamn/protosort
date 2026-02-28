@@ -5,10 +5,10 @@ package test.v1;
 service EmptySvc {
 }
 
-message Foo {
-  string val = 1;
-}
-
 message Bar {
   Foo foo = 1;
+}
+
+message Foo {
+  string val = 1;
 }
