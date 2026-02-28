@@ -170,13 +170,38 @@ message Trip { ... }
 message Vehicle { ... }
 ```
 
-The output follows a consistent section layout:
+### Section order
 
-1. **Header** — `syntax`, `package`, sorted `option`s, sorted `import`s
-2. **Services & RPC types** — RPCs grouped by resource noun then verb (`--sort-rpcs grouped`), each followed by its request/response pair
-3. **Shared types** — referenced by 2+ other declarations, sorted alphabetically
-4. **Helper types** — referenced by exactly 1 declaration, placed immediately before their consumer
-5. **Unreferenced types** — not referenced by anything else in the file, sorted alphabetically
+The output follows a fixed section layout:
+
+| # | Section | Contents | Order within section |
+|---|---------|----------|---------------------|
+| 1 | **Header** | `syntax`, `package`, `option`s, `extend`s, `import`s | Options and imports sorted alphabetically |
+| 2 | **Services** | `service` blocks | Original file order preserved |
+| 3 | **RPC types** | Request/response messages and their transitive dependencies | RPC declaration order; dependencies depth-first before dependents |
+| 4 | **Standalone types** | Messages/enums with no local references in or out | Alphabetical |
+| 5 | **Composite types** | Messages/enums that reference other local types | Alphabetical (or topological with `--shared-order dependency`) |
+| 6 | **Helper types** | Messages/enums referenced by others but not referencing local types themselves | Alphabetical |
+
+Each body block is preceded by one blank line. The file ends with a single newline.
+
+### How types are classified
+
+Classification is based on **outgoing** and **incoming** references between locally-defined types. A reference comes from a field type, map value type, oneof variant type, or RPC request/response type.
+
+**Counting rules:**
+- Multiple fields in the same message referencing the same type count as **one** reference.
+- Self-references (e.g., `TreeNode` → `TreeNode`) are ignored.
+- Package-qualified names (containing `.`) and scalar types are ignored — only local types count.
+- Circular references (A→B and B→A) boost both to ref_count ≥ 2, making them Composite.
+
+**Classification steps:**
+1. **Services** — all `service` blocks, in original order.
+2. **RPC types** — for each service, walk RPCs in declaration order. Collect each request and response type, plus all types they transitively reference through fields. Shared messages appear at first occurrence only.
+3. **Remaining types** are classified by their reference profile:
+   - Has outgoing refs to local types → **Composite**
+   - No outgoing refs, but incoming refs > 0 → **Helper**
+   - No outgoing refs, no incoming refs → **Standalone**
 
 ## Options
 
@@ -257,11 +282,6 @@ buf breaking /tmp/after.bin --against /tmp/before.bin
 ```
 
 If the last command reports no breaking changes, the reordering is safe.
-
-## Documentation
-
-- [Specification](protosort-spec.md) — full design spec with detailed rules for each section
-- [Style Guide](style-guide.md) — concise guide to the ordering conventions
 
 ## License
 
