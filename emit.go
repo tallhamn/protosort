@@ -84,6 +84,8 @@ func writeBlockWithComments(out *strings.Builder, b *Block) {
 
 // cleanComments removes leading/trailing blank lines from a comment block
 // while preserving internal blank lines (paragraph separators).
+// Special case: preserves ONE trailing blank line after section header banners
+// to prevent protoc from treating them as leading comments.
 func cleanComments(s string) string {
 	if s == "" {
 		return ""
@@ -96,15 +98,27 @@ func cleanComments(s string) string {
 		start++
 	}
 
-	// Trim trailing blank lines
+	// Count and trim trailing blank lines
 	end := len(lines)
+	trailingBlanks := 0
 	for end > start && strings.TrimSpace(lines[end-1]) == "" {
 		end--
+		trailingBlanks++
 	}
 
 	if start >= end {
 		return ""
 	}
 
-	return strings.Join(lines[start:end], "\n")
+	// Check if this ends with a section header banner line
+	preserveOneBlankLine := false
+	if end > 0 && strings.Contains(lines[end-1], "// ==========") && trailingBlanks > 0 {
+		preserveOneBlankLine = true
+	}
+
+	result := strings.Join(lines[start:end], "\n")
+	if preserveOneBlankLine {
+		result += "\n\n"
+	}
+	return result
 }

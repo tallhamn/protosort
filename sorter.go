@@ -706,15 +706,17 @@ func containsDivider(comments string) bool {
 const sectionHeaderBanner = "// ============================================================================"
 
 // sectionHeaderComment returns a 3-line section header comment block for the given label.
+// Includes a trailing blank line to prevent protoc from treating it as a leading comment.
 func sectionHeaderComment(label string) string {
-	return sectionHeaderBanner + "\n// " + label + "\n" + sectionHeaderBanner + "\n"
+	return sectionHeaderBanner + "\n// " + label + "\n" + sectionHeaderBanner + "\n\n"
 }
 
 // sectionHeaderRe matches the exact 3-line section header blocks that
 // injectSectionHeaders produces. It only strips headers with known labels
 // so that human-written decorative banners are never removed.
+// The \n? at the end optionally matches the trailing blank line.
 var sectionHeaderRe = regexp.MustCompile(
-	`(?m)^` + regexp.QuoteMeta(sectionHeaderBanner) + `\n// (?:Services|Types for \w+|Shared Types|Core Types|Unreferenced Types|Composite Types(?: (?:\([^)]+\)|--[^\n]+))?|Helper Types(?: (?:\([^)]+\)|--[^\n]+))?|Standalone Types(?: (?:\([^)]+\)|--[^\n]+))?|Types unused by RPCs)\n` + regexp.QuoteMeta(sectionHeaderBanner) + `\n`)
+	`(?m)^` + regexp.QuoteMeta(sectionHeaderBanner) + `\n// (?:Services|Types for \w+|Shared Types|Core Types|Unreferenced Types|Composite Types(?: (?:\([^)]+\)|--[^\n]+))?|Helper Types(?: (?:\([^)]+\)|--[^\n]+))?|Standalone Types(?: (?:\([^)]+\)|--[^\n]+))?|Types unused by RPCs)\n` + regexp.QuoteMeta(sectionHeaderBanner) + `\n\n?`)
 
 // Note: Old section names (Services, Shared Types, Core Types, Unreferenced Types) are kept
 // in the strip regex so that headers from older runs are cleaned up.
