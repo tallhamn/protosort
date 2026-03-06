@@ -10,10 +10,15 @@ import (
 	"strings"
 )
 
+// Version is set via ldflags during build: -ldflags "-X main.Version=x.y.z"
+var Version = "0.2.1"
+
 func main() {
 	opts := Options{}
 	var protoPaths multiFlag
+	var showVersion bool
 
+	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
 	flag.BoolVar(&opts.Recursive, "r", false, "Recursively process all .proto files in directories")
 	flag.BoolVar(&opts.Recursive, "recursive", false, "Recursively process all .proto files in directories")
 	flag.BoolVar(&opts.Write, "w", false, "Write changes in-place")
@@ -46,6 +51,12 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
+
 	opts.ProtoPaths = []string(protoPaths)
 
 	// When preserve-dividers is enabled, automatically enable section headers
